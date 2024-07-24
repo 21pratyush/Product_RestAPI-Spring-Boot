@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import com.project.crud.api.configuration.ProductNotFoundException;
 import com.project.crud.api.dto.ProductDto;
 import com.project.crud.api.models.ProductModel;
 import com.project.crud.api.repositories.ProductRepository;
@@ -24,7 +25,8 @@ public class ProductService {
 
     @Deprecated
     public ProductDto getProductById(Long id) {
-        ProductModel productModel = productRepository.getById(id);
+        ProductModel productModel = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product with ID " + id + " not found"));
         return modelMapper.map(productModel, ProductDto.class);
     }
 
@@ -35,17 +37,34 @@ public class ProductService {
     }
 
     public List<ProductDto> getAllProducts() {
-        return productRepository.findAll()
-                .stream()
+        List<ProductModel> products = productRepository.findAll();
+        if (products.isEmpty()) {
+            throw new ProductNotFoundException("No products found!");
+        }
+
+        return products.stream()
                 .map(productEntity -> modelMapper.map(productEntity, ProductDto.class))
                 .collect(Collectors.toList());
     }
 
-    public boolean deleteProductById(Long id){
+    public ProductDto updateProduct(Long id, ProductDto productDto) {
+        ProductModel product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product with ID " + id + " is not present!"));
 
-        boolean isPresent = productRepository.existsById(id);
-        if(!isPresent) return false;
+        product.setName(productDto.getName());
+        product.setDescription(productDto.getDescription());
+        product.setPrice(productDto.getPrice());
+
+        ProductModel updatedProduct = productRepository.save(product);
+        return modelMapper.map(updatedProduct, ProductDto.class);
+
+    }
+
+    public void deleteProductById(Long id) {
+        if (!productRepository.existsById(id)) {
+            throw new ProductNotFoundException("Product with ID " + id + " not found");
+        }
         productRepository.deleteById(id);
-        return true;
+        System.out.println("Success in deletion of product with ID: "+id);
     }
 }
